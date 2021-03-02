@@ -1,0 +1,11 @@
+[package]
+name = "osc-vmix"
+version = "0.1.0"
+authors = ["Carsten Koester <ckoester@cisco.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rosc = "~0.4"
+reqwest = { version  = "~0.11", features = ["blocking"]}
