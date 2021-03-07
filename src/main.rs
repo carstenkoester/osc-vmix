@@ -10,7 +10,14 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
 
-fn vmix_api_client(server: String, rx: mpsc::Receiver<i32>) {
+enum VmixMessage {
+    Fader(i32),
+    CutToInput(String),
+    PreviewInput(String),
+    Raw(String),
+}
+
+fn vmix_api_client(server: String, rx: mpsc::Receiver<VmixMessage>) {
     let client = Client::new();
 
     // http://10.4.132.189:8088/api/?Function=PreviewInput&Input=1
@@ -21,14 +28,18 @@ fn vmix_api_client(server: String, rx: mpsc::Receiver<i32>) {
     );
 
     loop {
-        let received = rx.recv().unwrap();
-        println!("Got: {}", received);
+        let api_request = match rx.recv() {
+            Ok(api_request) => api_request,
+            Err(error) => panic!("Error receiving message: {:?}", error),
+        };
+        let api_request = match rx.recv().unwrap() {
+            VmixMessage::Fader(x) => format!("Function=SetFader&Value={x}", x=x),
+            VmixMessage::CutToInput(x) => format!("Function=XXXXPreviewInput&Input={x}", x=x),
+            VmixMessage::PreviewInput(x) => format!("Function=PreviewInput&Input={x}", x=x),
+            VmixMessage::Raw(x) => format!("{x}", x=x),
+        };
+        let server_url = format!("{url_prefix}?{api_request}", url_prefix = server_url_prefix, api_request = api_request);
 
-        //let server_url = format!("{url_prefix}?Function=PreviewInput&Input={input}",
-        let server_url = format!("{url_prefix}?Function=SetFader&Value={input}",
-            url_prefix = server_url_prefix,
-            input = received
-        );
         println!("request = {:?}", server_url);
         let body = client.get(&server_url).send();
         println!("body = {:?}", body);
@@ -79,16 +90,19 @@ fn main() {
     }
 }
 
-fn handle_packet(packet: OscPacket, tx: &mpsc::Sender<i32>) {
+fn handle_packet(packet: OscPacket, tx: &mpsc::Sender<VmixMessage>) {
     match packet {
         OscPacket::Message(msg) => {
             println!("OSC address: {}", msg.addr);
             println!("OSC arguments: {:?}", msg.args);
-            println!("OSC arguments: {:?}", msg.args[0]);
 
-            let arg1 = msg.args[0].clone().int().unwrap();
-
-            tx.send(arg1).unwrap();
+            match msg.addr.as_str() {
+                "/fader" => tx.send(VmixMessage::Fader(msg.args[0].clone().int().unwrap())).unwrap(),
+                "/cut" => tx.send(VmixMessage::CutToInput(msg.args[0].clone().string().unwrap())).unwrap(),
+                "/preview" => tx.send(VmixMessage::PreviewInput(msg.args[0].clone().string().unwrap())).unwrap(),
+                "/raw" => tx.send(VmixMessage::Raw(msg.args[0].clone().string().unwrap())).unwrap(),
+                _ => println!("Received unknown OSC address {}, ignoring", msg.addr),
+            }
         }
         OscPacket::Bundle(bundle) => {
             println!("OSC Bundle: {:?}", bundle);
