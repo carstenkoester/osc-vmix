@@ -3,7 +3,7 @@
 Minimal OSC to vMix gateway.
 
 The purpose is to control [vMix](https://www.vmix.com/) using the [Open Sound Control (OSC)](http://opensoundcontrol.org/)
-protocol - in particular, using [QLab][https://qlab.app/].
+protocol - in particular, using [QLab](https://qlab.app/).
 
 
 ## TL;DR;
