@@ -1,14 +1,19 @@
 extern crate rosc;
 extern crate reqwest;
+extern crate url;
 
-use rosc::OscPacket;
-use reqwest::blocking::Client;
+use rosc::{OscPacket, OscMessage};
+use reqwest::blocking::ClientBuilder;
 
 use std::env;
 use std::net::{SocketAddrV4, UdpSocket};
 use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
+
+
+const API_TIMEOUT_SECONDS: u64 = 1;
 
 enum VmixMessage {
     Fader(i32),
@@ -18,31 +23,28 @@ enum VmixMessage {
 }
 
 fn vmix_api_client(server: String, rx: mpsc::Receiver<VmixMessage>) {
-    let client = Client::new();
+    let timeout = Duration::new(API_TIMEOUT_SECONDS, 0);
+    let client = ClientBuilder::new().timeout(timeout).build().unwrap();
 
-    // http://10.4.132.189:8088/api/?Function=PreviewInput&Input=1
-    // http://10.4.132.189:8088/api/?Function=SetFader&Value=1
-    // http://10.4.132.189:8088/api/?Function=Fade&Duration=6000
     let server_url_prefix = format!("http://{server}/api",
         server = server
     );
 
     loop {
-        let api_request = match rx.recv() {
-            Ok(api_request) => api_request,
-            Err(error) => panic!("Error receiving message: {:?}", error),
-        };
         let api_request = match rx.recv().unwrap() {
-            VmixMessage::Fader(x) => format!("Function=SetFader&Value={x}", x=x),
-            VmixMessage::CutToInput(x) => format!("Function=XXXXPreviewInput&Input={x}", x=x),
-            VmixMessage::PreviewInput(x) => format!("Function=PreviewInput&Input={x}", x=x),
-            VmixMessage::Raw(x) => format!("{x}", x=x),
+            VmixMessage::Fader(x) => format!("Function=SetFader&Value={}", x),
+            VmixMessage::CutToInput(x) => format!("Function=CutDirect&Input={}", x),
+            VmixMessage::PreviewInput(x) => format!("Function=PreviewInput&Input={}", x),
+            VmixMessage::Raw(x) => format!("{}", x),
         };
         let server_url = format!("{url_prefix}?{api_request}", url_prefix = server_url_prefix, api_request = api_request);
 
-        println!("request = {:?}", server_url);
-        let body = client.get(&server_url).send();
-        println!("body = {:?}", body);
+        println!("TX: INFO: request = {:?}", server_url);
+        let resp = client.get(&server_url).send();
+        match resp {
+          Ok(_) => {},
+          Err(e) => println!("TX: ERR: Error while invoking API request \"{request}\": {err}", request=server_url, err=e)
+        }
     }
 }
 
@@ -66,7 +68,7 @@ fn main() {
     let mut buf = [0u8; rosc::decoder::MTU];
 
     //
-    // Channel
+    // Create channel and spawn vMix API client thread
     //
     let (tx, rx) = mpsc::channel();
     let server_url = args[2].clone();
@@ -75,37 +77,91 @@ fn main() {
         vmix_api_client(server_url, rx)
     });
 
+    //
+    // Main loop -- receive and handle OSC packets
+    //
     loop {
         match sock.recv_from(&mut buf) {
-            Ok((size, addr)) => {
-                println!("Received packet with size {} from: {}", size, addr);
+            Ok((size, _addr)) => {
                 let packet = rosc::decoder::decode(&buf[..size]).unwrap();
                 handle_packet(packet, &tx);
             }
             Err(e) => {
-                println!("Error receiving from socket: {}", e);
+                println!("RX: ERR: Error receiving from socket: {}", e);
                 break;
             }
         }
     }
 }
 
+//
+// Handle OSC packet. Do error handling and then pass to vMix.
+//
 fn handle_packet(packet: OscPacket, tx: &mpsc::Sender<VmixMessage>) {
     match packet {
         OscPacket::Message(msg) => {
-            println!("OSC address: {}", msg.addr);
-            println!("OSC arguments: {:?}", msg.args);
+            println!("RX: INFO: Received addr {} args {:?}", msg.addr, msg.args);
 
             match msg.addr.as_str() {
-                "/fader" => tx.send(VmixMessage::Fader(msg.args[0].clone().int().unwrap())).unwrap(),
-                "/cut" => tx.send(VmixMessage::CutToInput(msg.args[0].clone().string().unwrap())).unwrap(),
-                "/preview" => tx.send(VmixMessage::PreviewInput(msg.args[0].clone().string().unwrap())).unwrap(),
-                "/raw" => tx.send(VmixMessage::Raw(msg.args[0].clone().string().unwrap())).unwrap(),
-                _ => println!("Received unknown OSC address {}, ignoring", msg.addr),
+                "/fader" => handle_fader_message(msg, tx),
+                "/cut" => handle_cut_message(msg, tx),
+                "/preview" => handle_preview_message(msg, tx),
+                "/raw" => handle_raw_message(msg, tx),
+                _ => println!("RX: ERR: Received unknown OSC address {}, ignoring", msg.addr),
             }
         }
         OscPacket::Bundle(bundle) => {
-            println!("OSC Bundle: {:?}", bundle);
+            println!("RX: ERR: Rexeived OSC bundle. OSC bundles currently not supported.  Bundle: {:?}", bundle);
         }
     }
+}
+
+//
+// Breakout functions to handle specific requests and validate arguments
+//
+fn handle_fader_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+  if msg.args.len() == 1 {
+    match msg.args[0] {
+      rosc::OscType::Int(val) => tx.send(VmixMessage::Fader(val)).unwrap(),
+      rosc::OscType::Float(val) => tx.send(VmixMessage::Fader(val.trunc() as i32)).unwrap(),
+      _ => println!("RX: ERR: Received OSC message \"/fader\" with unsupported value type. Received {:?}, expected integer or float", msg.args[0]),
+    }
+  } else {
+    println!("RX: ERR: Received OSC message \"/fader\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+  }
+}
+
+fn handle_cut_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+  if msg.args.len() == 1 {
+    match &msg.args[0] {
+      rosc::OscType::Int(val) => tx.send(VmixMessage::CutToInput(val.to_string())).unwrap(),
+      rosc::OscType::String(val) => tx.send(VmixMessage::CutToInput(val.clone())).unwrap(),
+      _ => println!("RX: ERR: Received OSC message \"/cut\" with unsupported value type. Received {:?}, expected integer or string", msg.args[0]),
+    }
+  } else {
+    println!("RX: ERR: Received OSC message \"/cut\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+  }
+}
+
+fn handle_preview_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+  if msg.args.len() == 1 {
+    match &msg.args[0] {
+      rosc::OscType::Int(val) => tx.send(VmixMessage::PreviewInput(val.to_string())).unwrap(),
+      rosc::OscType::String(val) => tx.send(VmixMessage::PreviewInput(val.clone())).unwrap(),
+      _ => println!("RX: ERR: Received OSC message \"/preview\" with unsupported value type. Received {:?}, expected integer or string", msg.args[0]),
+    }
+  } else {
+    println!("RX: ERR: Received OSC message \"/preview\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+  }
+}
+
+fn handle_raw_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+  if msg.args.len() == 1 {
+    match &msg.args[0] {
+      rosc::OscType::String(val) => tx.send(VmixMessage::Raw(val.clone())).unwrap(),
+      _ => println!("RX: ERR: Received OSC message \"/raw\" with unsupported value type. Received {:?}, expected string", msg.args[0]),
+    }
+  } else {
+    println!("RX: ERR: Received OSC message \"/raw\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+  }
 }
