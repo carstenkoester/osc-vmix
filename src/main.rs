@@ -4,6 +4,7 @@ extern crate url;
 
 use rosc::{OscPacket, OscMessage};
 use reqwest::blocking::ClientBuilder;
+use retry::retry;
 
 use std::env;
 use std::net::{SocketAddrV4, UdpSocket};
@@ -14,6 +15,8 @@ use std::time::Duration;
 
 
 const API_TIMEOUT_SECONDS: u64 = 1;
+const API_RETRY_MS: u64 = 100;
+const API_RETRY_COUNT: usize = 3;
 
 enum VmixMessage {
     Fader(i32),
@@ -40,7 +43,7 @@ fn vmix_api_client(server: String, rx: mpsc::Receiver<VmixMessage>) {
         let server_url = format!("{url_prefix}?{api_request}", url_prefix = server_url_prefix, api_request = api_request);
 
         println!("TX: INFO: request = {:?}", server_url);
-        let resp = client.get(&server_url).send();
+        let resp = retry(retry::delay::Fixed::from_millis(API_RETRY_MS).take(API_RETRY_COUNT), || client.get(&server_url).send());
         match resp {
           Ok(_) => {},
           Err(e) => println!("TX: ERR: Error while invoking API request \"{request}\": {err}", request=server_url, err=e)
