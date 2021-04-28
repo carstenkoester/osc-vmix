@@ -106,10 +106,10 @@ fn handle_packet(packet: OscPacket, tx: &mpsc::Sender<VmixMessage>) {
             println!("RX: INFO: Received addr {} args {:?}", msg.addr, msg.args);
 
             match msg.addr.as_str() {
-                "/fader" => handle_fader_message(msg, tx),
-                "/cut" => handle_cut_message(msg, tx),
-                "/preview" => handle_preview_message(msg, tx),
-                "/raw" => handle_raw_message(msg, tx),
+                "/vmix/fader" => handle_fader_message(msg, tx),
+                "/vmix/cut" => handle_cut_message(msg, tx),
+                "/vmix/preview" => handle_preview_message(msg, tx),
+                "/vmix/raw" => handle_raw_message(msg, tx),
                 _ => println!("RX: ERR: Received unknown OSC address {}, ignoring", msg.addr),
             }
         }
@@ -127,10 +127,10 @@ fn handle_fader_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
     match msg.args[0] {
       rosc::OscType::Int(val) => tx.send(VmixMessage::Fader(val)).unwrap(),
       rosc::OscType::Float(val) => tx.send(VmixMessage::Fader(val.trunc() as i32)).unwrap(),
-      _ => println!("RX: ERR: Received OSC message \"/fader\" with unsupported value type. Received {:?}, expected integer or float", msg.args[0]),
+      _ => println!("RX: ERR: Received OSC message \"/vmix/fader\" with unsupported value type. Received {:?}, expected integer or float", msg.args[0]),
     }
   } else {
-    println!("RX: ERR: Received OSC message \"/fader\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+    println!("RX: ERR: Received OSC message \"/vmix/fader\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
   }
 }
 
@@ -139,10 +139,10 @@ fn handle_cut_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
     match &msg.args[0] {
       rosc::OscType::Int(val) => tx.send(VmixMessage::CutToInput(val.to_string())).unwrap(),
       rosc::OscType::String(val) => tx.send(VmixMessage::CutToInput(val.clone())).unwrap(),
-      _ => println!("RX: ERR: Received OSC message \"/cut\" with unsupported value type. Received {:?}, expected integer or string", msg.args[0]),
+      _ => println!("RX: ERR: Received OSC message \"/vmix/cut\" with unsupported value type. Received {:?}, expected integer or string", msg.args[0]),
     }
   } else {
-    println!("RX: ERR: Received OSC message \"/cut\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+    println!("RX: ERR: Received OSC message \"/vmix/cut\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
   }
 }
 
@@ -151,10 +151,10 @@ fn handle_preview_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
     match &msg.args[0] {
       rosc::OscType::Int(val) => tx.send(VmixMessage::PreviewInput(val.to_string())).unwrap(),
       rosc::OscType::String(val) => tx.send(VmixMessage::PreviewInput(val.clone())).unwrap(),
-      _ => println!("RX: ERR: Received OSC message \"/preview\" with unsupported value type. Received {:?}, expected integer or string", msg.args[0]),
+      _ => println!("RX: ERR: Received OSC message \"/vmix/preview\" with unsupported value type. Received {:?}, expected integer or string", msg.args[0]),
     }
   } else {
-    println!("RX: ERR: Received OSC message \"/preview\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+    println!("RX: ERR: Received OSC message \"/vmix/preview\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
   }
 }
 
@@ -162,9 +162,9 @@ fn handle_raw_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
   if msg.args.len() == 1 {
     match &msg.args[0] {
       rosc::OscType::String(val) => tx.send(VmixMessage::Raw(val.clone())).unwrap(),
-      _ => println!("RX: ERR: Received OSC message \"/raw\" with unsupported value type. Received {:?}, expected string", msg.args[0]),
+      _ => println!("RX: ERR: Received OSC message \"/vmix/raw\" with unsupported value type. Received {:?}, expected string", msg.args[0]),
     }
   } else {
-    println!("RX: ERR: Received OSC message \"/raw\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+    println!("RX: ERR: Received OSC message \"/vmix/raw\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
   }
 }

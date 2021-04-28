@@ -87,12 +87,12 @@ group, ie. the crossfade):
 
 The following OSC messages are currently implemented;
 
-### Load input to preview (`/preview`)
+### Load input to preview (`/vmix/preview`)
 
 Syntax:
 
 ```
-/preview <input; string or integer>
+/vmix/preview <input; string or integer>
 ```
 
 Sends the selected input to preview. The input can be identified by number, name or UUID, as described in
@@ -101,12 +101,12 @@ Sends the selected input to preview. The input can be identified by number, name
 This OSC message invokes the vMix API `PreviewInput` function.
 
 
-### Cut input to active output (`/cut`).
+### Cut input to active output (`/vmix/cut`).
 
 Syntax:
 
 ```
-/cut <input; string or integer>
+/vmix/cut <input; string or integer>
 ```
 
 Sends the selected input directly to the active output, without sending it to preview first. The input can be
@@ -115,10 +115,10 @@ identified by number, name or UUID, as described in [the vMix API documentation]
 This OSC message invokes the vMix API `CutDirect` function.
 
 
-### Fader control (`/fader`).
+### Fader control (`/vmix/fader`).
 
 ```
-/fader <position; integer or float (integer recommended); 0-255>
+/vmix/fader <position; integer or float (integer recommended); 0-255>
 ```
 
 This is equivalent to the vMix `SetFader` API call and shortcut, or to pulling the crossfader between preview
@@ -139,14 +139,14 @@ appear to be `20 fps` and `30 fps`, but also might depend on the output encoding
 in vMix. (There isn't really much point in this value being higher than the vMix output fps).
 
 
-### Raw messages (`/raw`)
+### Raw messages (`/vmix/raw`)
 
 Syntax:
 
 ```
-/raw <string; API request and parameters>
+/vmix/raw <string; API request and parameters>
 ```
 
 This is a catch-all message that takes a string, and will pass that to vMix API as-is. The string parameter
 can be any value that would follow the `?` character in a [vMIX API HTTP request](https://www.vmix.com/help23/index.htm?DeveloperAPI.html),
-eg. `/raw Function=Fade&Duration=1000`
+eg. `/vmix/raw Function=Fade&Duration=1000`
