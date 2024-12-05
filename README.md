@@ -7,7 +7,7 @@ protocol - in particular, using [QLab](https://qlab.app/).
 
 
 ## TL;DR;
-// i use a macport for install a cargo(https://www.macports.org/install.php)
+// i use a macport for install a cargo(https://www.macports.org/install.php). If you already have cargo in your system, you don't need it.
 
 ```
 $ sudo port install cargo
