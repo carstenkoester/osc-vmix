@@ -7,8 +7,10 @@ protocol - in particular, using [QLab](https://qlab.app/).
 
 
 ## TL;DR;
+// i use a macport for install a cargo(https://www.macports.org/install.php). If you already have cargo in your system, you don't need it.
 
 ```
+$ sudo port install cargo
 $ cargo build
 # Run on the same machine where QLab is running, and assume vMix is running on a machine with IP 192.168.3.4
 $ ./target/debug/osc-vmix 127.0.0.1:5055 192.168.3.4:8088
@@ -101,42 +103,48 @@ Sends the selected input to preview. The input can be identified by number, name
 This OSC message invokes the vMix API `PreviewInput` function.
 
 
-### Cut input to active output (`/vmix/cut`).
+### FadeToBlack (`/vmix/FTB`).
 
 Syntax:
 
 ```
-/vmix/cut <input; string or integer>
+/vmix/ftb
 ```
 
-Sends the selected input directly to the active output, without sending it to preview first. The input can be
-identified by number, name or UUID, as described in [the vMix API documentation](https://www.vmix.com/help23/index.htm?DeveloperAPI.html).
+This OSC message invokes the vMix API `FadeToBlack` function.
 
-This OSC message invokes the vMix API `CutDirect` function.
-
-
-### Fader control (`/vmix/fader`).
+### NextItem (`/vmix/nextitem`).
 
 ```
-/vmix/fader <position; integer or float (integer recommended); 0-255>
+/vmix/nextitem <-1 for Active, 0 for preview, 1-999 for any input>
 ```
 
-This is equivalent to the vMix `SetFader` API call and shortcut, or to pulling the crossfader between preview
-and active.
+This OSC message allows you to switch slides in a presentation(my use case). **Don't forget to make sure to insert arguments!** -1 for Active Input or 0 for Preview (you can use 1 to infinity to change slides there too).
 
-In combination with qlab fades, this allows vMix to cross-fade from preview to output using whatever fade time
-is specified in qlab.
+### PreviousItem (`/vmix/previousitem`).
 
-The parameter should be a single value between `0` and `255`. Values between `1` and `254` will progressively
-fade to preview, and `255` will complete the fade and flip-flop active and preview. Make sure that the value
-`255` is only sent once.
+```
+/vmix/previousitem <-1 for Active, 0 for preview, 1-999 for any input>
+```
 
-The screenshot above shows an example of integrating this with a qlab 1D fade.
+This OSC message allows you to switch slides in a presentation(my use case). **Don't forget to make sure to insert arguments!** : -1 for Active Input or 0 for Preview (you can use 1 to infinity to change slides there too).
 
-In the qlab fade, the "fps" value will dictate how smooth the fade appears to be. `1 fps` and also `10 fps`
-will make the fade not look smooth. `60fps` and above will likely overload the vMix API. Usable values
-appear to be `20 fps` and `30 fps`, but also might depend on the output encoding and frames per seconds set
-in vMix. (There isn't really much point in this value being higher than the vMix output fps).
+### QuickPlay (`/vmix/quickplay`).
+
+```
+/vmix/quickplay
+```
+
+Quickplay and nothing else.
+
+### Restart (`/vmix/restart`).
+
+```
+/vmix/restart <-1 for Active, 0 for Preview, 1-999 for any input>
+```
+
+This OSC message allows you to restart the desired input. **Don't forget to insert arguments!** : -1 for active input or 0 for preview (you can use 1 to infinity to restart any input).
+
 
 
 ### Raw messages (`/vmix/raw`)
