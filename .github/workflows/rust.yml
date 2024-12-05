@@ -1,4 +1,4 @@
-            - name: cargo-static-build
+            - name: build
   # You may pin to the exact commit or the version.
   # uses: zhxiaogg/cargo-static-build@c73ebfef9174ddf30a8949280b756f87e00904e4
   uses: zhxiaogg/cargo-static-build@v1.41.1-1
