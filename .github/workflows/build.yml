@@ -14,10 +14,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Install OpenSSL
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
+
+      - name: Print system info
+        run: |
+          uname -a
+          lsb_release -a
+          pkg-config --version
+          openssl version
 
       - name: Build
         run: cargo build --verbose
