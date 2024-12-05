@@ -19,10 +19,13 @@ const API_RETRY_MS: u64 = 100;
 const API_RETRY_COUNT: usize = 3;
 
 enum VmixMessage {
-    Fader(i32),
-    CutToInput(String),
+    Quickplay(String),
+    Ftb(String),
+    Restart(String),
     PreviewInput(String),
     Raw(String),
+    NextItem(String),
+    PreviousItem(String),
 }
 
 fn vmix_api_client(server: String, rx: mpsc::Receiver<VmixMessage>) {
@@ -35,10 +38,13 @@ fn vmix_api_client(server: String, rx: mpsc::Receiver<VmixMessage>) {
 
     loop {
         let api_request = match rx.recv().unwrap() {
-            VmixMessage::Fader(x) => format!("Function=SetFader&Value={}", x),
-            VmixMessage::CutToInput(x) => format!("Function=CutDirect&Input={}", x),
+            VmixMessage::Quickplay(x) => format!("Function=QuickPlay"),
+            VmixMessage::Ftb(x) => format!("Function=FadeToBlack"),
+            VmixMessage::Restart(x) => format!("Function=Restart"),
             VmixMessage::PreviewInput(x) => format!("Function=PreviewInput&Input={}", x),
             VmixMessage::Raw(x) => format!("{}", x),
+            VmixMessage::NextItem(x) => format!("Function=NextItem&Input={}", x),
+            VmixMessage::PreviousItem(x) => format!("Function=PreviousItem&Input={}", x),
         };
         let server_url = format!("{url_prefix}?{api_request}", url_prefix = server_url_prefix, api_request = api_request);
 
@@ -106,10 +112,14 @@ fn handle_packet(packet: OscPacket, tx: &mpsc::Sender<VmixMessage>) {
             println!("RX: INFO: Received addr {} args {:?}", msg.addr, msg.args);
 
             match msg.addr.as_str() {
-                "/vmix/fader" => handle_fader_message(msg, tx),
-                "/vmix/cut" => handle_cut_message(msg, tx),
+                "/vmix/quickplay" => handle_quickplay_message(msg, tx),
+                "/vmix/restart" => handle_restart_message(msg, tx),
+                "/vmix/ftb" => handle_ftb_message(msg, tx),
                 "/vmix/preview" => handle_preview_message(msg, tx),
                 "/vmix/raw" => handle_raw_message(msg, tx),
+                "/vmix/nextitem" => handle_nextitem_message(msg, tx),
+                "/vmix/previousitem" => handle_previousitem_message(msg, tx),
+
                 _ => println!("RX: ERR: Received unknown OSC address {}, ignoring", msg.addr),
             }
         }
@@ -121,29 +131,38 @@ fn handle_packet(packet: OscPacket, tx: &mpsc::Sender<VmixMessage>) {
 
 //
 // Breakout functions to handle specific requests and validate arguments
+// Обработка функций
 //
-fn handle_fader_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
-  if msg.args.len() == 1 {
-    match msg.args[0] {
-      rosc::OscType::Int(val) => tx.send(VmixMessage::Fader(val)).unwrap(),
-      rosc::OscType::Float(val) => tx.send(VmixMessage::Fader(val.trunc() as i32)).unwrap(),
-      _ => println!("RX: ERR: Received OSC message \"/vmix/fader\" with unsupported value type. Received {:?}, expected integer or float", msg.args[0]),
+fn handle_quickplay_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+    if msg.args.len() == 0 {
+        // Обработка случая, когда аргументов нет
+        println!("RX: INFO: Received addr /vmix/quickplay with no arguments.");
+        tx.send(VmixMessage::Quickplay("".to_string())).unwrap(); // Отправляем пустую строку или любое другое значение
+    } else {
+        // Если аргументы присутствуют, выводим сообщение об ошибке
+        println!("RX: ERR: Received OSC message \"/vmix/quickplay\" with invalid number of arguments. Just delete a arguments! Expected no arguments, got {}", msg.args.len());
     }
-  } else {
-    println!("RX: ERR: Received OSC message \"/vmix/fader\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
-  }
 }
 
-fn handle_cut_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
-  if msg.args.len() == 1 {
-    match &msg.args[0] {
-      rosc::OscType::Int(val) => tx.send(VmixMessage::CutToInput(val.to_string())).unwrap(),
-      rosc::OscType::String(val) => tx.send(VmixMessage::CutToInput(val.clone())).unwrap(),
-      _ => println!("RX: ERR: Received OSC message \"/vmix/cut\" with unsupported value type. Received {:?}, expected integer or string", msg.args[0]),
+fn handle_ftb_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+    if msg.args.len() == 0 {
+        // Обработка случая, когда аргументов нет
+        println!("RX: INFO: Received addr /vmix/quickplay with no arguments.");
+        tx.send(VmixMessage::Ftb("".to_string())).unwrap(); // Отправляем пустую строку или любое другое значение
+    } else {
+        // Если аргументы присутствуют, выводим сообщение об ошибке
+        println!("RX: ERR: Received OSC message \"/vmix/quickplay\" with invalid number of arguments. Just delete a arguments! Expected no arguments, got {}", msg.args.len());
     }
-  } else {
-    println!("RX: ERR: Received OSC message \"/vmix/cut\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
-  }
+}
+fn handle_restart_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+    if msg.args.len() == 0 {
+        // Обработка случая, когда аргументов нет
+        println!("RX: INFO: Received addr /vmix/quickplay with no arguments.");
+        tx.send(VmixMessage::Restart("".to_string())).unwrap(); // Отправляем пустую строку или любое другое значение
+    } else {
+        // Если аргументы присутствуют, выводим сообщение об ошибке
+        println!("RX: ERR: Received OSC message \"/vmix/quickplay\" with invalid number of arguments. Just delete a arguments! Expected no arguments, got {}", msg.args.len());
+    }
 }
 
 fn handle_preview_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
@@ -168,3 +187,29 @@ fn handle_raw_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
     println!("RX: ERR: Received OSC message \"/vmix/raw\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
   }
 }
+
+fn handle_nextitem_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+  if msg.args.len() == 1 {
+    match &msg.args[0] {
+      rosc::OscType::Int(val) => tx.send(VmixMessage::NextItem(val.to_string())).unwrap(),
+      rosc::OscType::String(val) => tx.send(VmixMessage::NextItem(val.clone())).unwrap(),
+      _ => println!("RX: ERR: Received OSC message \"/vmix/nextitem\" with unsupported value type. Received {:?}, expected (-1) for Active OR (0) for Preview", msg.args[0]),
+    }
+  } else {
+    println!("RX: ERR: Received OSC message \"/vmix/nextitem\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+  }
+}
+
+fn handle_previousitem_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
+  if msg.args.len() == 1 {
+    match &msg.args[0] {
+      rosc::OscType::Int(val) => tx.send(VmixMessage::PreviousItem(val.to_string())).unwrap(),
+      rosc::OscType::String(val) => tx.send(VmixMessage::PreviousItem(val.clone())).unwrap(),
+      _ => println!("RX: ERR: Received OSC message \"/vmix/previousitem\" with unsupported value type. Received {:?}, expected (-1) for Active OR (0) for Preview", msg.args[0]),
+    }
+  } else {
+    println!("RX: ERR: Received OSC message \"/vmix/previousitem\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+  }
+}
+
+
