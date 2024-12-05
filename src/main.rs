@@ -40,7 +40,7 @@ fn vmix_api_client(server: String, rx: mpsc::Receiver<VmixMessage>) {
         let api_request = match rx.recv().unwrap() {
             VmixMessage::Quickplay(x) => format!("Function=QuickPlay"),
             VmixMessage::Ftb(x) => format!("Function=FadeToBlack"),
-            VmixMessage::Restart(x) => format!("Function=Restart"),
+            VmixMessage::Restart(x) => format!("Function=Restart&Input={}", x),
             VmixMessage::PreviewInput(x) => format!("Function=PreviewInput&Input={}", x),
             VmixMessage::Raw(x) => format!("{}", x),
             VmixMessage::NextItem(x) => format!("Function=NextItem&Input={}", x),
@@ -154,15 +154,17 @@ fn handle_ftb_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
         println!("RX: ERR: Received OSC message \"/vmix/quickplay\" with invalid number of arguments. Just delete a arguments! Expected no arguments, got {}", msg.args.len());
     }
 }
+
 fn handle_restart_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
-    if msg.args.len() == 0 {
-        // Обработка случая, когда аргументов нет
-        println!("RX: INFO: Received addr /vmix/quickplay with no arguments.");
-        tx.send(VmixMessage::Restart("".to_string())).unwrap(); // Отправляем пустую строку или любое другое значение
-    } else {
-        // Если аргументы присутствуют, выводим сообщение об ошибке
-        println!("RX: ERR: Received OSC message \"/vmix/quickplay\" with invalid number of arguments. Just delete a arguments! Expected no arguments, got {}", msg.args.len());
+  if msg.args.len() == 1 {
+    match &msg.args[0] {
+      rosc::OscType::Int(val) => tx.send(VmixMessage::Restart(val.to_string())).unwrap(),
+      rosc::OscType::String(val) => tx.send(VmixMessage::Restart(val.clone())).unwrap(),
+      _ => println!("RX: ERR: Received OSC message \"/vmix/restart\" with unsupported value type. Received {:?}, expected (-1) for Active OR (0) for Preview", msg.args[0]),
     }
+  } else {
+    println!("RX: ERR: Received OSC message \"/vmix/restart\" with invalid number of arguments. Expected one argument, got {}", msg.args.len());
+  }
 }
 
 fn handle_preview_message(msg: OscMessage, tx: &mpsc::Sender<VmixMessage>) {
