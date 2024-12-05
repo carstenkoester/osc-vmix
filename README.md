@@ -7,8 +7,10 @@ protocol - in particular, using [QLab](https://qlab.app/).
 
 
 ## TL;DR;
+// i use a macport for install a cargo(https://www.macports.org/install.php)
 
 ```
+$ sudo port install cargo
 $ cargo build
 # Run on the same machine where QLab is running, and assume vMix is running on a machine with IP 192.168.3.4
 $ ./target/debug/osc-vmix 127.0.0.1:5055 192.168.3.4:8088
